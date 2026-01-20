@@ -1,93 +1,202 @@
 "use client";
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence, useInView } from "framer-motion";
 import VSCodeViewer from "./VSCodeViewer";
-import { autosellFiles } from "../data/vscode/index"; // Poprawiona ścieżka do danych
+import { autosellFiles } from "../data/vscode/index";
+import {
+  FaGithub,
+  FaEnvelope,
+  FaPhoneAlt,
+  FaCode,
+  FaTerminal,
+} from "react-icons/fa";
 
-// --- DANE PROJEKTÓW ---
+// Komponent pojedynczego terminala z kodem, który aktywuje się po zjechaniu do niego
+const LiveCodeTerminal = ({
+  snippets,
+}: {
+  snippets: { name: string; code: string }[];
+}) => {
+  const [index, setIndex] = useState(0);
+  const [displayedCode, setDisplayedCode] = useState("");
+  const containerRef = useRef(null);
+
+  // Sprawdzamy czy terminal jest widoczny na ekranie
+  const isInView = useInView(containerRef, { once: false, amount: 0.5 });
+
+  useEffect(() => {
+    if (!isInView) return; // Jeśli nie widać, nic nie rób
+
+    let i = 0;
+    setDisplayedCode("");
+    const currentSnippet = snippets[index];
+
+    const typingInterval = setInterval(() => {
+      setDisplayedCode(currentSnippet.code.slice(0, i));
+      i++;
+      if (i > currentSnippet.code.length) {
+        clearInterval(typingInterval);
+        // Czekaj 4 sekundy i przełącz na kolejny plik
+        setTimeout(() => {
+          setIndex((prev) => (prev + 1) % snippets.length);
+        }, 4000);
+      }
+    }, 20); // Szybkość pisania
+
+    return () => clearInterval(typingInterval);
+  }, [index, snippets, isInView]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative h-full min-h-[320px] bg-[#0d0d0d] rounded-[1.5rem] overflow-hidden border border-[#222] group-hover:border-[#D4AF37]/50 transition-all duration-700 shadow-2xl flex flex-col font-mono"
+    >
+      {/* Terminal Header */}
+      <div className="flex items-center justify-between px-4 py-3 bg-[#161616] border-b border-[#222]">
+        <div className="flex gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]"></div>
+          <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]"></div>
+          <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]"></div>
+        </div>
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={snippets[index].name}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            className="text-neutral-500 text-[10px] uppercase tracking-widest flex items-center gap-2"
+          >
+            <FaTerminal size={10} /> {snippets[index].name}
+          </motion.span>
+        </AnimatePresence>
+      </div>
+
+      {/* Code Area */}
+      <div className="p-6 flex-1 overflow-hidden relative">
+        <pre className="text-[#ce9178] leading-relaxed text-[11px] md:text-[13px] whitespace-pre">
+          <code>
+            {displayedCode}
+            <span className="animate-pulse bg-[#D4AF37] w-1.5 h-4 inline-block ml-1"></span>
+          </code>
+        </pre>
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0d0d0d] via-transparent to-transparent opacity-60"></div>
+
+        {/* Overlay po najechaniu */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-[#D4AF37]/5 backdrop-blur-[1px]">
+          <div className="bg-[#1e1e1e] border border-[#333] text-white px-4 py-2 rounded-lg flex items-center gap-3 shadow-xl transform translate-y-2 group-hover:translate-y-0 transition-transform">
+            <FaCode className="text-[#D4AF37]" />
+            <span className="font-bold text-[10px] uppercase tracking-widest">
+              Launch Full Editor
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const projects = [
   {
     id: 1,
     number: "01",
     title: "Autosell.pl",
-    category: "Commercial Platform (Live)",
+    category: "Full-Stack Ecosystem",
     year: "2024 — 2025",
     description:
-      "A comprehensive enterprise-grade marketplace for the automotive industry. The system handles real-time user interactions and complex data filtering. Deployed on VPS with NGINX reverse proxy and PM2 process management.",
-    highlights: [
-      "Modular Socket.IO Architecture",
-      "React Context for Global State",
-      "Custom Rate Limiting Middleware",
-      "Secure Image Processing Pipeline",
+      "Enterprise automotive marketplace with high-performance search engine, real-time notifications, and professional admin dashboard.",
+    tech: ["Next.js", "Node.js", "MongoDB", "Socket.IO", "Redis"],
+    snippets: [
+      {
+        name: "adController.js",
+        code: `static async getAllAds(req, res, next) {
+  const { brand, model, minPrice, maxPrice } = req.query;
+  const filter = { status: getActiveStatusFilter() };
+
+  if (brand) filter.brand = brand;
+  if (model) filter.model = model;
+
+  const ads = await Ad.find(filter)
+    .sort({ createdAt: -1 })
+    .limit(30);
+}`,
+      },
+      {
+        name: "socketService.js",
+        code: `this.io = new Server(server, {
+  cors: { origin: ["http://localhost:3000"] },
+  pingTimeout: 60000,
+  connectionStateRecovery: {
+    maxDisconnectionDuration: 2 * 60 * 1000
+  }
+});`,
+      },
     ],
-    tech: [
-      "Next.js",
-      "React Context",
-      "Node.js",
-      "Express",
-      "MongoDB",
-      "Socket.IO",
-      "Redis",
-    ],
-    image: "/images/Zrzuty/Lista ogłoszeń.webp",
     website: "https://www.autosell.pl",
-    github: null,
-    isInteractive: true, // Ten projekt otwiera VS Code
+    isInteractive: true,
   },
   {
     id: 2,
     number: "02",
-    title: "Windows XP Portfolio",
-    category: "Interactive UI",
+    title: "WinXP OS Portfolio",
+    category: "Interactive Simulation",
     year: "2025",
     description:
-      "An interactive, pixel-perfect recreation of the Windows XP operating system in a browser. Features a fully functional window manager, simulated applications (Winamp, Paint), and system-level drag & drop.",
-    highlights: [
-      "Custom Window Manager Hook",
-      "Glitch & CRT Effects",
-      "Mobile Touch Support",
-      "5000+ Lines of TypeScript",
+      "A deep dive into browser-based operating systems. Complex state management for windowing, file systems, and real-time audio.",
+    tech: ["React", "TypeScript", "Tailwind", "Framer Motion"],
+    snippets: [
+      {
+        name: "WindowManager.tsx",
+        code: `export const WindowProvider = ({ children }) => {
+  const [activeWindows, setActive] = useState([]);
+  
+  const focusWindow = (id) => {
+    setZIndex(prev => prev + 1);
+    updateWindowOrder(id);
+  };
+};`,
+      },
     ],
-    tech: ["React", "TypeScript", "Tailwind", "Framer Motion", "Howler.js"],
-    image: "/images/Zrzuty/Formularz.webp",
-    website: null,
+    website: "https://mateusz-goszczycki-portfolio.vercel.app/",
     github: "https://github.com/Goniek94",
-    isInteractive: false,
+    isInteractive: true,
   },
   {
     id: 3,
     number: "03",
     title: "Transport Services",
-    category: "High-Performance Web",
+    category: "Core Web Vitals King",
     year: "2024",
     description:
-      "A lightning-fast landing page built with a custom component loader architecture. Focused on Core Web Vitals, accessibility, and modular SCSS structure without heavy frameworks. Achieved 99/100 Google Lighthouse score.",
-    highlights: [
-      "Custom Component Loader (Vanilla JS)",
-      "Advanced SCSS Architecture (BEM)",
-      "99/100 Google Lighthouse Score",
-      "Mobile-First Optimization",
+      "Built for speed and SEO. Custom Vanilla JS component loader to eliminate framework overhead and achieve 99+ Lighthouse score.",
+    tech: ["HTML5", "SCSS", "Vanilla JS", "Gulp"],
+    snippets: [
+      {
+        name: "componentLoader.js",
+        code: `const initLazyComponents = () => {
+  const components = document.querySelectorAll('[data-lazy]');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) load(entry.target);
+    });
+  });
+};`,
+      },
     ],
-    tech: ["HTML5", "SCSS (Sass)", "Vanilla JavaScript", "Gulp", "Webpack"],
-    // Pamiętaj, aby dodać zdjęcie tego projektu do folderu public/images/Zrzuty!
-    image: "/images/Zrzuty/bus-page-preview.webp",
-    website: "https://phumarbus.pl", // Jeśli nie masz live, ustaw null
+    website: "https://phumarbus.pl",
     github: "https://github.com/Goniek94",
-    isInteractive: false,
+    isInteractive: true,
   },
 ];
 
 export default function Projects() {
-  const [activeProject, setActiveProject] = useState<number>(1);
   const [isVSCodeOpen, setIsVSCodeOpen] = useState(false);
 
   return (
     <section
       id="projects"
-      className="relative w-full bg-[#050505] text-[#e1e1e1] py-24 md:py-40 px-4 md:px-12 overflow-hidden"
+      className="relative w-full bg-[#050505] text-[#e1e1e1] pb-16 px-4 md:px-12 overflow-hidden border-t border-[#111] -mt-24 md:-mt-40 pt-20"
     >
-      {/* VS Code Modal */}
       <VSCodeViewer
         isOpen={isVSCodeOpen}
         onClose={() => setIsVSCodeOpen(false)}
@@ -95,267 +204,118 @@ export default function Projects() {
         title="Autosell-Repo"
       />
 
-      {/* TŁO */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none"></div>
-
-      <div className="max-w-[1800px] mx-auto relative z-10">
+      <div className="max-w-[1700px] mx-auto relative z-10">
         {/* --- HEADER --- */}
-        <div className="mb-20 md:mb-32 flex flex-col md:flex-row md:items-end justify-between border-b border-[#333] pb-8 gap-6">
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <span className="w-2 h-2 bg-[#D4AF37] rounded-full animate-pulse"></span>
-              <span className="font-mono text-xs text-[#D4AF37] tracking-widest uppercase">
-                Selected Works
-              </span>
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 mb-12 border-b border-[#222] pb-10">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 font-mono text-xs text-[#D4AF37] tracking-[0.4em] uppercase font-bold">
+              <span className="w-2 h-2 bg-[#D4AF37] rounded-full animate-pulse"></span>{" "}
+              Systems & Products
             </div>
-            <h2 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter text-white">
-              FEATURED <br className="hidden md:block" /> PROJECTS
+            <h2 className="text-5xl md:text-7xl font-black tracking-tighter text-white uppercase leading-none">
+              Featured
+              <br />
+              Projects
             </h2>
           </div>
 
-          <div className="md:text-right max-w-md">
-            <p className="text-neutral-500 text-sm md:text-base leading-relaxed">
-              A selection of my most ambitious technical endeavors. Focused on
-              scalability, performance, and user experience.
-            </p>
+          <div className="bg-[#0a0a0a] border border-[#222] p-6 rounded-3xl flex flex-col md:flex-row gap-8 items-center shadow-2xl">
+            <div className="space-y-3 text-right">
+              <div className="flex items-center gap-4 justify-end">
+                <a
+                  href="mailto:mateusz.goszczycki1994@gmail.com"
+                  className="text-sm font-bold text-white hover:text-[#D4AF37] transition-colors font-mono cursor-pointer"
+                >
+                  mateusz.goszczycki1994@gmail.com
+                </a>
+                <FaEnvelope className="text-[#D4AF37]" />
+              </div>
+              <div className="flex items-center gap-4 justify-end">
+                <a
+                  href="tel:+48516223029"
+                  className="text-sm font-bold text-white hover:text-[#D4AF37] transition-colors font-mono cursor-pointer"
+                >
+                  +48 516 223 029
+                </a>
+                <FaPhoneAlt className="text-[#D4AF37]" />
+              </div>
+            </div>
+            <div className="flex flex-col items-center gap-2 border-l border-[#222] pl-8">
+              <a
+                href="https://github.com/Goniek94"
+                target="_blank"
+                className="px-5 py-2.5 bg-[#111] border border-[#222] rounded-full text-[10px] font-mono text-neutral-400 hover:text-[#D4AF37] hover:border-[#D4AF37] transition-all cursor-pointer"
+              >
+                <FaGithub size={16} /> github_repo_root
+              </a>
+            </div>
           </div>
         </div>
 
-        {/* --- UKŁAD GŁÓWNY --- */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20">
-          {/* LEWA KOLUMNA: LISTA KART */}
-          <div className="lg:col-span-7 flex flex-col gap-12 md:gap-24">
-            {projects.map((project) => (
-              <div
-                key={project.id}
-                className="group relative"
-                onMouseEnter={() => setActiveProject(project.id)}
-              >
-                {/* NUMER W TLE */}
-                <span className="absolute -top-12 -left-8 md:-left-16 text-[100px] md:text-[180px] font-black text-[#111] leading-none z-0 select-none group-hover:text-[#1a1a1a] transition-colors duration-500">
-                  {project.number}
-                </span>
-
-                {/* KARTA PROJEKTU */}
-                <div className="relative z-10 pl-2 md:pl-8 border-l-2 border-[#222] group-hover:border-[#D4AF37] transition-colors duration-300">
-                  {/* --- NAGŁÓWEK (INTERAKTYWNY DLA AUTOSELL) --- */}
-                  <div className="flex flex-col md:flex-row md:items-baseline gap-2 md:gap-6 mb-4">
-                    <h3
-                      className={`text-3xl md:text-5xl font-bold text-white transition-colors duration-300 ${project.isInteractive ? "cursor-pointer hover:text-[#4ec9b0]" : "group-hover:text-[#D4AF37]"}`}
-                      onClick={() => {
-                        if (project.isInteractive) {
-                          setIsVSCodeOpen(true);
-                        }
-                      }}
+        {/* --- PROJECTS LIST --- */}
+        <div className="flex flex-col gap-10 md:gap-16">
+          {projects.map((project) => (
+            <div
+              key={project.id}
+              className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center group cursor-pointer border border-transparent p-4 md:p-6 rounded-[2rem] bg-[#0a0a0a]/30 transition-all duration-500 hover:border-[#D4AF37]/30 hover:bg-[#D4AF37]/[0.02]"
+              onClick={() => setIsVSCodeOpen(true)}
+            >
+              {/* LEFT: INFO */}
+              <div className="lg:col-span-7 space-y-5">
+                <div className="flex items-center gap-6 font-mono">
+                  <span className="text-5xl font-black text-[#151515] group-hover:text-[#D4AF37] transition-colors duration-700">
+                    {project.number}
+                  </span>
+                  <span className="h-[2px] w-12 bg-[#222]"></span>
+                  <span className="text-neutral-600 text-[10px] uppercase tracking-[0.3em] font-bold">
+                    {project.category}
+                  </span>
+                </div>
+                <h3 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter transition-colors group-hover:text-[#D4AF37] leading-none">
+                  {project.title}
+                </h3>
+                <p className="text-neutral-400 text-lg md:text-xl leading-relaxed max-w-2xl font-light italic">
+                  "{project.description}"
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {project.tech.map((t) => (
+                    <span
+                      key={t}
+                      className="px-3 py-1 bg-[#050505] border border-[#222] text-[9px] font-mono text-[#D4AF37] uppercase tracking-widest rounded-lg"
                     >
-                      {project.title}
-                      {project.isInteractive && (
-                        <span className="ml-4 text-xs bg-[#252526] text-[#4ec9b0] px-2 py-1 rounded border border-[#333] align-middle font-mono animate-pulse">
-                          &lt;view_code /&gt;
-                        </span>
-                      )}
-                    </h3>
-                    <span className="font-mono text-xs md:text-sm text-neutral-500 uppercase tracking-widest">
-                      {project.category} • {project.year}
+                      {t}
                     </span>
-                  </div>
-
-                  <p className="text-neutral-400 text-base md:text-lg leading-relaxed max-w-xl mb-6">
-                    {project.description}
-                  </p>
-
-                  {/* Highlights */}
-                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-8">
-                    {project.highlights.map((h, i) => (
-                      <li
-                        key={i}
-                        className="flex items-center gap-2 text-sm text-neutral-500 font-mono"
-                      >
-                        <span className="text-[#D4AF37]">/</span> {h}
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* Tech Stack */}
-                  <div className="flex flex-wrap gap-2 mb-8">
-                    {project.tech.map((t) => (
-                      <span
-                        key={t}
-                        className="px-3 py-1 bg-[#111] border border-[#333] text-xs font-mono text-neutral-300 uppercase tracking-wider rounded-sm"
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* MOBILE IMAGE (Widoczny tylko na mobile) */}
-                  <div
-                    className="lg:hidden w-full h-[250px] md:h-[400px] rounded-lg overflow-hidden border border-[#333] mb-8 relative group-hover:border-[#D4AF37] transition-colors"
-                    onClick={() => {
-                      if (project.isInteractive) setIsVSCodeOpen(true);
-                    }}
+                  ))}
+                </div>
+                <div
+                  className="flex items-center gap-8 pt-4"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {project.website && (
+                    <a
+                      href={project.website}
+                      target="_blank"
+                      className="text-white font-black uppercase tracking-widest text-[10px] border-b-4 border-[#D4AF37] pb-1 hover:bg-[#D4AF37] hover:text-black transition-all cursor-pointer px-1"
+                    >
+                      Live Site ↗
+                    </a>
+                  )}
+                  <button
+                    onClick={() => setIsVSCodeOpen(true)}
+                    className="flex items-center gap-2 text-[#4ec9b0] font-mono text-[11px] uppercase font-black hover:text-white transition-all cursor-pointer"
                   >
-                    <img
-                      src={project.image}
-                      alt={project.title}
-                      className="w-full h-full object-cover"
-                      onError={(e) =>
-                        (e.currentTarget.src =
-                          "https://placehold.co/800x600/111/333?text=Project+Preview")
-                      }
-                    />
-                    <div className="absolute inset-0 bg-black/20"></div>
-                    {project.isInteractive && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="bg-black/70 text-white px-4 py-2 rounded border border-[#333] backdrop-blur-md text-xs font-bold uppercase">
-                          Tap to View Code
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* BUTTONS */}
-                  <div className="flex gap-6 flex-wrap">
-                    {project.website && (
-                      <a
-                        href={project.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-3 text-white font-bold text-sm tracking-[0.2em] uppercase border-b border-[#D4AF37] pb-1 hover:text-[#D4AF37] transition-colors"
-                      >
-                        Visit Live Website{" "}
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                          ></path>
-                        </svg>
-                      </a>
-                    )}
-
-                    {project.github ? (
-                      <a
-                        href={project.github}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-3 text-white font-bold text-sm tracking-[0.2em] uppercase border-b border-[#D4AF37] pb-1 hover:text-[#D4AF37] transition-colors"
-                      >
-                        View Repository{" "}
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M17 8l4 4m0 0l-4 4m4-4H3"
-                          ></path>
-                        </svg>
-                      </a>
-                    ) : project.isInteractive ? (
-                      <button
-                        onClick={() => setIsVSCodeOpen(true)}
-                        className="inline-flex items-center gap-3 text-neutral-400 font-bold text-sm tracking-[0.2em] uppercase border-b border-transparent pb-1 hover:text-[#4ec9b0] hover:border-[#4ec9b0] transition-colors"
-                      >
-                        Peek Code (Simulated){" "}
-                        <span className="text-xl">⌨️</span>
-                      </button>
-                    ) : (
-                      <span
-                        className="inline-flex items-center gap-3 text-neutral-600 font-bold text-sm tracking-[0.2em] uppercase cursor-not-allowed"
-                        title="Code Private"
-                      >
-                        Code Private
-                      </span>
-                    )}
-                  </div>
+                    <FaCode /> [ INSPECT_SOURCE ]
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
 
-          {/* PRAWA KOLUMNA: STICKY PREVIEW */}
-          <div className="hidden lg:block lg:col-span-5 relative">
-            <div className="sticky top-32 w-full h-[600px]">
-              <div className="absolute -inset-4 border border-[#222] z-0"></div>
-              <div className="absolute -inset-4 bg-[#0a0a0a] z-0 translate-x-4 translate-y-4 border border-[#222]"></div>
-
-              <div className="relative w-full h-full bg-[#111] border border-[#333] overflow-hidden z-10 shadow-2xl">
-                <AnimatePresence mode="wait">
-                  {projects.map(
-                    (project) =>
-                      activeProject === project.id && (
-                        <motion.div
-                          key={project.id}
-                          initial={{ opacity: 0, scale: 1.1 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{
-                            duration: 0.6,
-                            ease: [0.76, 0, 0.24, 1],
-                          }}
-                          className={`absolute inset-0 ${project.isInteractive ? "cursor-pointer group/image" : ""}`}
-                          onClick={() => {
-                            if (project.isInteractive) setIsVSCodeOpen(true);
-                          }}
-                        >
-                          <img
-                            src={project.image}
-                            alt={project.title}
-                            className="w-full h-full object-cover opacity-90 transition-transform duration-700 group-hover/image:scale-105"
-                            onError={(e) =>
-                              (e.currentTarget.src =
-                                "https://placehold.co/800x1000/111/333?text=Project+Preview")
-                            }
-                          />
-
-                          <div className="absolute inset-0 bg-radial-gradient from-transparent to-black/60 pointer-events-none"></div>
-
-                          {/* OVERLAY DLA INTERAKTYWNYCH */}
-                          {project.isInteractive && (
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/image:opacity-100 transition-opacity duration-300 bg-black/40 backdrop-blur-[2px]">
-                              <div className="bg-[#1e1e1e] border border-[#333] text-white px-6 py-3 rounded-full flex items-center gap-3 shadow-2xl transform translate-y-4 group-hover/image:translate-y-0 transition-transform duration-300">
-                                <span className="text-xl">👨‍💻</span>
-                                <span className="font-mono text-sm font-bold tracking-wider uppercase">
-                                  Open Code Viewer
-                                </span>
-                              </div>
-                            </div>
-                          )}
-
-                          <motion.div
-                            initial={{ y: 20, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            transition={{ delay: 0.3 }}
-                            className="absolute bottom-8 left-8 bg-black/80 backdrop-blur-md p-6 border-l-4 border-[#D4AF37] max-w-xs pointer-events-none"
-                          >
-                            <p className="text-[#D4AF37] text-xs font-mono uppercase mb-2">
-                              {project.github
-                                ? "Open Source"
-                                : "Commercial / Live"}
-                            </p>
-                            <p className="text-white text-sm leading-relaxed">
-                              {project.highlights[0]} <br />
-                              {project.highlights[1]}
-                            </p>
-                          </motion.div>
-                        </motion.div>
-                      ),
-                  )}
-                </AnimatePresence>
+              {/* RIGHT: SMART TERMINAL */}
+              <div className="lg:col-span-5 relative h-full">
+                <LiveCodeTerminal snippets={project.snippets} />
+                <div className="absolute -z-10 -top-3 -right-3 w-full h-full border border-[#D4AF37]/5 rounded-[1.5rem] rotate-1 group-hover:rotate-2 transition-all duration-700"></div>
               </div>
             </div>
-          </div>
+          ))}
         </div>
       </div>
     </section>
