@@ -4,15 +4,9 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import VSCodeViewer from "./VSCodeViewer";
 import { autosellFiles } from "../data/vscode/index";
-import {
-  FaGithub,
-  FaEnvelope,
-  FaPhoneAlt,
-  FaCode,
-  FaTerminal,
-} from "react-icons/fa";
+import { ecomatiFiles } from "../data/vscode/ecomatiFiles";
+import { FaCode, FaTerminal } from "react-icons/fa";
 
-// Komponent pojedynczego terminala z kodem, który aktywuje się po zjechaniu do niego
 const LiveCodeTerminal = ({
   snippets,
 }: {
@@ -21,12 +15,10 @@ const LiveCodeTerminal = ({
   const [index, setIndex] = useState(0);
   const [displayedCode, setDisplayedCode] = useState("");
   const containerRef = useRef(null);
-
-  // Sprawdzamy czy terminal jest widoczny na ekranie
   const isInView = useInView(containerRef, { once: false, amount: 0.5 });
 
   useEffect(() => {
-    if (!isInView) return; // Jeśli nie widać, nic nie rób
+    if (!isInView) return;
 
     let i = 0;
     setDisplayedCode("");
@@ -37,12 +29,11 @@ const LiveCodeTerminal = ({
       i++;
       if (i > currentSnippet.code.length) {
         clearInterval(typingInterval);
-        // Czekaj 4 sekundy i przełącz na kolejny plik
         setTimeout(() => {
           setIndex((prev) => (prev + 1) % snippets.length);
         }, 4000);
       }
-    }, 20); // Szybkość pisania
+    }, 20);
 
     return () => clearInterval(typingInterval);
   }, [index, snippets, isInView]);
@@ -52,7 +43,6 @@ const LiveCodeTerminal = ({
       ref={containerRef}
       className="relative h-full min-h-[320px] bg-[#0d0d0d] rounded-[1.5rem] overflow-hidden border border-[#222] group-hover:border-[#D4AF37]/50 transition-all duration-700 shadow-2xl flex flex-col font-mono"
     >
-      {/* Terminal Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-[#161616] border-b border-[#222]">
         <div className="flex gap-1.5">
           <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]"></div>
@@ -72,7 +62,6 @@ const LiveCodeTerminal = ({
         </AnimatePresence>
       </div>
 
-      {/* Code Area */}
       <div className="p-6 flex-1 overflow-hidden relative">
         <pre className="text-[#ce9178] leading-relaxed text-[11px] md:text-[13px] whitespace-pre">
           <code>
@@ -82,7 +71,6 @@ const LiveCodeTerminal = ({
         </pre>
         <div className="absolute inset-0 bg-gradient-to-t from-[#0d0d0d] via-transparent to-transparent opacity-60"></div>
 
-        {/* Overlay po najechaniu */}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-[#D4AF37]/5 backdrop-blur-[1px]">
           <div className="bg-[#1e1e1e] border border-[#333] text-white px-4 py-2 rounded-lg flex items-center gap-3 shadow-xl transform translate-y-2 group-hover:translate-y-0 transition-transform">
             <FaCode className="text-[#D4AF37]" />
@@ -100,6 +88,124 @@ const projects = [
   {
     id: 1,
     number: "01",
+    title: "Ecomati Shop",
+    category: "E-Commerce Platform",
+    year: "2024 — 2025",
+    description:
+      "Modern organic food e-commerce platform with dynamic product variants, shopping cart management, and Prisma ORM integration. Built with Next.js 14 and TypeScript.",
+    tech: ["Next.js 14", "TypeScript", "Prisma", "PostgreSQL", "Framer Motion"],
+    snippets: [
+      {
+        name: "ProductCard.tsx",
+        code: `const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
+
+const currentVariant = product.variants?.[selectedVariantIndex];
+const displayPrice = currentVariant?.price || product.price;
+const displaySize = currentVariant?.size || product.sizes?.[0] || "Standard";
+
+const handleQuickAdd = (e: React.MouseEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  addToCart(product, displaySize, 1);
+  showToast(\`Dodano do koszyka: \${product.name} (\${displaySize})\`);
+};
+
+const handleVariantClick = (e: React.MouseEvent, index: number) => {
+  e.preventDefault();
+  e.stopPropagation();
+  setSelectedVariantIndex(index);
+};`,
+      },
+      {
+        name: "CartContext.tsx",
+        code: `const addToCart = (product: Product, size: string, quantity: number = 1) => {
+  setCart((prev) => {
+    const existing = prev.find(
+      (item) => item.id === product.id && item.selectedSize === size,
+    );
+
+    if (existing) {
+      return prev.map((item) =>
+        item.id === product.id && item.selectedSize === size
+          ? { ...item, quantity: item.quantity + quantity }
+          : item,
+      );
+    } else {
+      const newItem: CartItem = {
+        ...product,
+        cartId: \`\${product.id}-\${size}\`,
+        selectedSize: size,
+        quantity: quantity,
+      };
+      return [...prev, newItem];
+    }
+  });
+};`,
+      },
+      {
+        name: "page.tsx",
+        code: `async function getFeaturedProducts() {
+  try {
+    const products = await prisma.product.findMany({
+      where: {
+        deletedAt: null,
+        isAvailable: true,
+      },
+      take: 12,
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return products.map((p: any) => {
+      const weightOptions = p.weightOptions as any;
+      const hasVariants =
+        weightOptions?.variants && weightOptions.variants.length > 0;
+
+      const firstVariant = hasVariants ? weightOptions.variants[0] : null;
+      const displaySize = firstVariant?.size || "";
+      const displayPrice = firstVariant?.price || p.price;
+      const variantCount = hasVariants ? weightOptions.variants.length : 0;
+
+      const variants = hasVariants
+        ? weightOptions.variants.map((v: any) => ({
+            size: v.size,
+            price: \`\${v.price} zł\`,
+            priceNumeric: parseFloat(v.price),
+          }))
+        : undefined;
+
+      return {
+        id: Number(p.id),
+        name: p.name,
+        desc: p.shortDescription || "",
+        price: \`\${displayPrice} zł\`,
+        displaySize,
+        variantCount,
+        image: p.mainImage || "/Img/Olejbio.png",
+        category: p.category,
+        group: p.productGroup || "",
+        featured: p.isFeatured,
+        sizes: hasVariants
+          ? weightOptions.variants.map((v: any) => v.size)
+          : [],
+        variants,
+      };
+    });
+  } catch (error) {
+    console.error("Error fetching featured products:", error);
+    return [];
+  }
+}`,
+      },
+    ],
+    website: "https://ecomati-shop.vercel.app",
+    github: "https://github.com/Goniek94/ecomati",
+    isInteractive: true,
+  },
+  {
+    id: 2,
+    number: "02",
     title: "Autosell.pl",
     category: "Full-Stack Ecosystem",
     year: "2024 — 2025",
@@ -136,8 +242,8 @@ const projects = [
     isInteractive: true,
   },
   {
-    id: 2,
-    number: "02",
+    id: 3,
+    number: "03",
     title: "WinXP OS Portfolio",
     category: "Interactive Simulation",
     year: "2025",
@@ -162,8 +268,43 @@ const projects = [
     isInteractive: true,
   },
   {
-    id: 3,
-    number: "03",
+    id: 4,
+    number: "04",
+    title: "ShopX E-Commerce",
+    category: "Modern Online Store",
+    year: "2024",
+    description:
+      "Full-featured e-commerce platform with Stripe payments, inventory management, and analytics dashboard. Built for scalability and conversion optimization.",
+    tech: ["Next.js 14", "Prisma", "PostgreSQL", "Stripe", "Zustand"],
+    snippets: [
+      {
+        name: "checkout.ts",
+        code: `export async function createCheckout(items: CartItem[]) {
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    line_items: items.map(item => ({
+      price_data: {
+        currency: 'pln',
+        product_data: { name: item.name },
+        unit_amount: item.price * 100,
+      },
+      quantity: item.quantity,
+    })),
+    mode: 'payment',
+    success_url: \`\${url}/success\`,
+  });
+  
+  return session;
+}`,
+      },
+    ],
+    website: "https://shopx-demo.vercel.app",
+    github: "https://github.com/Goniek94/shopx",
+    isInteractive: true,
+  },
+  {
+    id: 5,
+    number: "05",
     title: "Transport Services",
     category: "Core Web Vitals King",
     year: "2024",
@@ -191,130 +332,162 @@ const projects = [
 
 export default function Projects() {
   const [isVSCodeOpen, setIsVSCodeOpen] = useState(false);
+  const [currentFiles, setCurrentFiles] = useState(autosellFiles);
+  const [currentTitle, setCurrentTitle] = useState("Autosell-Repo");
+
+  const openVSCode = (files: any[], title: string) => {
+    setCurrentFiles(files);
+    setCurrentTitle(title);
+    setIsVSCodeOpen(true);
+  };
 
   return (
     <section
       id="projects"
-      className="relative w-full bg-[#050505] text-[#e1e1e1] pb-16 px-4 md:px-12 overflow-hidden border-t border-[#111] -mt-24 md:-mt-40 pt-20"
+      className="relative w-full bg-[#050505] text-[#e1e1e1] py-32 px-4 md:px-12 overflow-hidden"
     >
       <VSCodeViewer
         isOpen={isVSCodeOpen}
         onClose={() => setIsVSCodeOpen(false)}
-        files={autosellFiles}
-        title="Autosell-Repo"
+        files={currentFiles}
+        title={currentTitle}
       />
 
       <div className="max-w-[1700px] mx-auto relative z-10">
         {/* --- HEADER --- */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 mb-12 border-b border-[#222] pb-10">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3 font-mono text-xs text-[#D4AF37] tracking-[0.4em] uppercase font-bold">
-              <span className="w-2 h-2 bg-[#D4AF37] rounded-full animate-pulse"></span>{" "}
+        <div className="mb-24">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="flex items-center gap-4 mb-8"
+          >
+            <div className="h-[2px] w-16 bg-[#D4AF37]" />
+            <span className="text-xs font-mono tracking-[0.3em] text-[#D4AF37] uppercase font-bold">
               Systems & Products
-            </div>
-            <h2 className="text-5xl md:text-7xl font-black tracking-tighter text-white uppercase leading-none">
-              Featured
-              <br />
-              Projects
-            </h2>
-          </div>
+            </span>
+          </motion.div>
 
-          <div className="bg-[#0a0a0a] border border-[#222] p-6 rounded-3xl flex flex-col md:flex-row gap-8 items-center shadow-2xl">
-            <div className="space-y-3 text-right">
-              <div className="flex items-center gap-4 justify-end">
-                <a
-                  href="mailto:mateusz.goszczycki1994@gmail.com"
-                  className="text-sm font-bold text-white hover:text-[#D4AF37] transition-colors font-mono cursor-pointer"
-                >
-                  mateusz.goszczycki1994@gmail.com
-                </a>
-                <FaEnvelope className="text-[#D4AF37]" />
-              </div>
-              <div className="flex items-center gap-4 justify-end">
-                <a
-                  href="tel:+48516223029"
-                  className="text-sm font-bold text-white hover:text-[#D4AF37] transition-colors font-mono cursor-pointer"
-                >
-                  +48 516 223 029
-                </a>
-                <FaPhoneAlt className="text-[#D4AF37]" />
-              </div>
-            </div>
-            <div className="flex flex-col items-center gap-2 border-l border-[#222] pl-8">
-              <a
-                href="https://github.com/Goniek94"
-                target="_blank"
-                className="px-5 py-2.5 bg-[#111] border border-[#222] rounded-full text-[10px] font-mono text-neutral-400 hover:text-[#D4AF37] hover:border-[#D4AF37] transition-all cursor-pointer"
-              >
-                <FaGithub size={16} /> github_repo_root
-              </a>
-            </div>
-          </div>
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="text-6xl md:text-8xl font-black tracking-tighter text-white uppercase leading-none mb-8"
+          >
+            Featured
+            <br />
+            Projects
+          </motion.h2>
+
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+            className="text-xl md:text-2xl text-neutral-500 font-light leading-relaxed"
+          >
+            Real-world applications built from concept to deployment.
+            <br />
+            Click any project to explore the source code.
+          </motion.p>
         </div>
 
-        {/* --- PROJECTS LIST --- */}
-        <div className="flex flex-col gap-10 md:gap-16">
-          {projects.map((project) => (
-            <div
+        {/* --- PROJECTS GRID --- */}
+        <div className="flex flex-col gap-24">
+          {projects.map((project, idx) => (
+            <motion.div
               key={project.id}
-              className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center group cursor-pointer border border-transparent p-4 md:p-6 rounded-[2rem] bg-[#0a0a0a]/30 transition-all duration-500 hover:border-[#D4AF37]/30 hover:bg-[#D4AF37]/[0.02]"
-              onClick={() => setIsVSCodeOpen(true)}
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ delay: idx * 0.1 }}
+              className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center group cursor-pointer border border-[#222] p-8 rounded-[2rem] bg-[#0a0a0a] transition-all duration-500 hover:border-[#D4AF37]/60 hover:bg-[#0f0f0f] hover:shadow-[0_0_40px_rgba(212,175,55,0.15)]"
+              onClick={() => {
+                if (project.id === 1) {
+                  openVSCode(ecomatiFiles, "Ecomati-Repo");
+                } else if (project.id === 2) {
+                  openVSCode(autosellFiles, "Autosell-Repo");
+                } else {
+                  setIsVSCodeOpen(true);
+                }
+              }}
             >
               {/* LEFT: INFO */}
-              <div className="lg:col-span-7 space-y-5">
+              <div className="lg:col-span-7 space-y-6">
                 <div className="flex items-center gap-6 font-mono">
-                  <span className="text-5xl font-black text-[#151515] group-hover:text-[#D4AF37] transition-colors duration-700">
+                  <span className="text-6xl font-black text-[#151515] group-hover:text-[#D4AF37] transition-colors duration-700">
                     {project.number}
                   </span>
-                  <span className="h-[2px] w-12 bg-[#222]"></span>
-                  <span className="text-neutral-600 text-[10px] uppercase tracking-[0.3em] font-bold">
-                    {project.category}
-                  </span>
+                  <div className="flex-1 h-[2px] bg-gradient-to-r from-[#222] to-transparent"></div>
                 </div>
-                <h3 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter transition-colors group-hover:text-[#D4AF37] leading-none">
-                  {project.title}
-                </h3>
-                <p className="text-neutral-400 text-lg md:text-xl leading-relaxed max-w-2xl font-light italic">
-                  "{project.description}"
+
+                <div className="space-y-2">
+                  <span className="text-neutral-600 text-xs uppercase tracking-[0.3em] font-bold block">
+                    {project.category} • {project.year}
+                  </span>
+                  <h3 className="text-5xl md:text-6xl font-black text-white uppercase tracking-tighter transition-colors group-hover:text-[#D4AF37] leading-none">
+                    {project.title}
+                  </h3>
+                </div>
+
+                <p className="text-neutral-400 text-lg md:text-xl leading-relaxed max-w-2xl font-light">
+                  {project.description}
                 </p>
-                <div className="flex flex-wrap gap-2">
+
+                <div className="flex flex-wrap gap-2 pt-4">
                   {project.tech.map((t) => (
                     <span
                       key={t}
-                      className="px-3 py-1 bg-[#050505] border border-[#222] text-[9px] font-mono text-[#D4AF37] uppercase tracking-widest rounded-lg"
+                      className="px-4 py-2 bg-[#050505] border border-[#222] text-[10px] font-mono text-[#D4AF37] uppercase tracking-widest rounded-lg hover:border-[#D4AF37] transition-colors"
                     >
                       {t}
                     </span>
                   ))}
                 </div>
+
                 <div
-                  className="flex items-center gap-8 pt-4"
+                  className="flex items-center gap-6 pt-6"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {project.website && (
                     <a
                       href={project.website}
                       target="_blank"
-                      className="text-white font-black uppercase tracking-widest text-[10px] border-b-4 border-[#D4AF37] pb-1 hover:bg-[#D4AF37] hover:text-black transition-all cursor-pointer px-1"
+                      className="group/link flex items-center gap-2 text-white font-black uppercase tracking-widest text-xs border-b-2 border-[#D4AF37] pb-2 hover:border-white transition-all"
                     >
-                      Live Site ↗
+                      View Live Site
+                      <span className="group-hover/link:translate-x-1 transition-transform">
+                        →
+                      </span>
                     </a>
                   )}
                   <button
-                    onClick={() => setIsVSCodeOpen(true)}
-                    className="flex items-center gap-2 text-[#4ec9b0] font-mono text-[11px] uppercase font-black hover:text-white transition-all cursor-pointer"
+                    onClick={() => {
+                      if (project.id === 1) {
+                        openVSCode(ecomatiFiles, "Ecomati-Repo");
+                      } else if (project.id === 2) {
+                        openVSCode(autosellFiles, "Autosell-Repo");
+                      } else {
+                        setIsVSCodeOpen(true);
+                      }
+                    }}
+                    className="flex items-center gap-2 text-[#4ec9b0] font-mono text-xs uppercase font-black hover:text-white transition-all"
                   >
-                    <FaCode /> [ INSPECT_SOURCE ]
+                    <FaCode size={14} /> Explore Code
                   </button>
                 </div>
               </div>
 
-              {/* RIGHT: SMART TERMINAL */}
+              {/* RIGHT: TERMINAL */}
               <div className="lg:col-span-5 relative h-full">
                 <LiveCodeTerminal snippets={project.snippets} />
-                <div className="absolute -z-10 -top-3 -right-3 w-full h-full border border-[#D4AF37]/5 rounded-[1.5rem] rotate-1 group-hover:rotate-2 transition-all duration-700"></div>
+
+                {/* Glowing shadow effect */}
+                <div className="absolute -z-10 -inset-1 bg-gradient-to-r from-[#D4AF37]/20 to-transparent rounded-[1.5rem] blur-xl opacity-0 group-hover:opacity-100 transition-all duration-700"></div>
+                <div className="absolute -z-10 -top-4 -right-4 w-full h-full border border-[#D4AF37]/20 rounded-[1.5rem] rotate-2 group-hover:rotate-3 transition-all duration-700"></div>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

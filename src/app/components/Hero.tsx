@@ -52,7 +52,24 @@ export default function Hero() {
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
   const [quoteIndex, setQuoteIndex] = useState(0);
+  const [time, setTime] = useState("");
+  const [date, setDate] = useState("");
 
+  // Zegar
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setTime(now.toLocaleTimeString("pl-PL", { hour12: false }));
+      setDate(
+        now.toLocaleDateString("pl-PL", { day: "2-digit", month: "short" }),
+      );
+    };
+    updateTime();
+    const timer = setInterval(updateTime, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Rotating quotes
   useEffect(() => {
     const interval = setInterval(() => {
       setQuoteIndex((prev) => (prev + 1) % quotes.length);
@@ -71,18 +88,61 @@ export default function Hero() {
 
       {/* --- MAIN CONTENT --- */}
       <div className="z-10 w-full max-w-[1800px] mx-auto flex flex-col justify-center">
-        {/* HEADER */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5, duration: 0.8 }}
-          className="flex items-center gap-4 mb-6"
-        >
-          <div className="h-[2px] w-12 bg-[#D4AF37]" />
-          <span className="text-xs md:text-sm font-mono tracking-[0.2em] text-[#D4AF37] uppercase font-bold">
-            Full Stack Engineer • Poland
-          </span>
-        </motion.div>
+        {/* TOP BAR */}
+        <div className="flex items-start justify-between mb-6">
+          {/* LEFT - Header */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.5, duration: 0.8 }}
+            className="flex items-center gap-4"
+          >
+            <div className="h-[2px] w-12 bg-[#D4AF37]" />
+            <span className="text-xs md:text-sm font-mono tracking-[0.2em] text-[#D4AF37] uppercase font-bold">
+              Full Stack Engineer • Poland
+            </span>
+          </motion.div>
+
+          {/* RIGHT - DOJEBANY ZEGAR */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.7, duration: 0.8 }}
+            className="relative group"
+          >
+            {/* Glowing background */}
+            <div className="absolute -inset-2 bg-gradient-to-r from-[#D4AF37]/20 via-[#D4AF37]/10 to-transparent rounded-2xl blur-xl opacity-60 group-hover:opacity-100 transition-opacity"></div>
+
+            {/* Clock container */}
+            <div className="relative bg-[#0a0a0a] border-2 border-[#D4AF37]/30 rounded-2xl px-6 py-4 backdrop-blur-sm group-hover:border-[#D4AF37] transition-all duration-500">
+              <div className="flex items-center gap-4">
+                {/* Time display */}
+                <div className="font-mono text-5xl font-black text-white tabular-nums tracking-tighter">
+                  {time}
+                </div>
+
+                {/* Separator */}
+                <div className="h-12 w-[2px] bg-gradient-to-b from-transparent via-[#D4AF37] to-transparent"></div>
+
+                {/* Location */}
+                <div className="flex flex-col justify-center">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2 h-2 bg-[#27c93f] rounded-full animate-pulse shadow-[0_0_10px_#27c93f]"></div>
+                    <span className="text-xs font-mono text-neutral-500 uppercase tracking-wider">
+                      Live
+                    </span>
+                  </div>
+                  <div className="text-sm font-bold text-[#D4AF37]">
+                    Łódź, PL
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom accent */}
+              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent"></div>
+            </div>
+          </motion.div>
+        </div>
 
         {/* TITLE */}
         <motion.div

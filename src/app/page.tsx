@@ -5,6 +5,7 @@ import { AnimatePresence } from "framer-motion";
 import InitialLoader from "./components/InitialLoader";
 import Hero from "./components/Hero";
 import Projects from "./components/Projects";
+import Contact from "./components/Contacts";
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
@@ -30,6 +31,7 @@ export default function Home() {
       <div className="relative z-0">
         <Hero />
         <Projects />
+        <Contact />
       </div>
     </main>
   );

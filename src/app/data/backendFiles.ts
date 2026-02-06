@@ -384,9 +384,14 @@ export default AdController;`,
       language: "javascript",
       content: `import Message from "../../models/communication/message.js";
 import User from "../../models/user/user.js";
+import Ad from "../../models/listings/ad.js";
 import mongoose from "mongoose";
 import notificationManager from "../../services/notificationManager.js";
-import logger from "../../utils/logger.js";
+import {
+  uploadMessageImages,
+  validateMessageFiles,
+  isImageUploadAvailable,
+} from "./messageImageUpload.js";
 
 export const getConversation = async (req, res) => {
   try {
@@ -394,26 +399,51 @@ export const getConversation = async (req, res) => {
     const { adId, page = 1, limit = 50 } = req.query;
     const currentUserId = req.user.userId;
 
-    const currentUserObjectId = new mongoose.Types.ObjectId(currentUserId);
-    const otherUserObjectId = new mongoose.Types.ObjectId(userId);
+    console.log("=== getConversation START ===");
+    console.log("userId:", userId, "adId:", adId, "currentUserId:", currentUserId);
+
+    const currentUserObjectId = mongoose.Types.ObjectId.isValid(currentUserId)
+      ? new mongoose.Types.ObjectId(currentUserId)
+      : currentUserId;
+    const otherUserObjectId = mongoose.Types.ObjectId.isValid(userId)
+      ? new mongoose.Types.ObjectId(userId)
+      : userId;
 
     const otherUser = await User.findById(otherUserObjectId);
-    if (!otherUser) return res.status(404).json({ message: "User not found" });
+    if (!otherUser) {
+      return res.status(404).json({ message: "Nie znaleziono użytkownika" });
+    }
 
     let messageQuery = {
       $or: [
-        { sender: currentUserObjectId, recipient: otherUserObjectId, deletedBy: { $nin: [currentUserObjectId] } },
-        { sender: otherUserObjectId, recipient: currentUserObjectId, deletedBy: { $nin: [currentUserObjectId] } },
+        {
+          sender: currentUserObjectId,
+          recipient: otherUserObjectId,
+          deletedBy: { $nin: [currentUserObjectId] },
+        },
+        {
+          sender: otherUserObjectId,
+          recipient: currentUserObjectId,
+          deletedBy: { $nin: [currentUserObjectId] },
+        },
       ],
     };
 
     if (adId && adId !== "no-ad") {
-      messageQuery.relatedAd = new mongoose.Types.ObjectId(adId);
+      const adObjectId = mongoose.Types.ObjectId.isValid(adId)
+        ? new mongoose.Types.ObjectId(adId)
+        : adId;
+      messageQuery.relatedAd = adObjectId;
+      console.log("Filtrowanie według ogłoszenia:", adId);
     } else if (adId === "no-ad") {
       messageQuery.relatedAd = { $exists: false };
+      console.log("Filtrowanie wiadomości bez ogłoszenia");
     }
 
+    console.log("Query do wiadomości:", JSON.stringify(messageQuery));
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
+
     const [messages, totalCount] = await Promise.all([
       Message.find(messageQuery)
         .populate("sender", "name email")
@@ -428,111 +458,45 @@ export const getConversation = async (req, res) => {
 
     messages.reverse();
 
-    const unreadMessages = messages.filter(msg => msg.recipient._id.toString() === currentUserId && !msg.read);
+    console.log(\`Znaleziono \${messages.length} wiadomości (strona \${page}, total: \${totalCount})\`);
+
+    const unreadMessages = messages.filter(
+      (msg) => msg.recipient._id.toString() === currentUserId && !msg.read
+    );
+
     if (unreadMessages.length > 0) {
-      await Message.updateMany({ _id: { $in: unreadMessages.map(msg => msg._id) } }, { read: true });
+      console.log(\`Oznaczanie \${unreadMessages.length} wiadomości jako przeczytane\`);
+      await Message.updateMany(
+        { _id: { $in: unreadMessages.map((msg) => msg._id) } },
+        { read: true }
+      );
     }
 
-    res.status(200).json({
-      otherUser: { id: otherUser._id, name: otherUser.name, email: otherUser.email },
-      messages,
+    const response = {
+      otherUser: {
+        id: otherUser._id,
+        name: otherUser.name,
+        email: otherUser.email,
+      },
+      messages: messages,
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(totalCount / parseInt(limit)),
-        totalMessages: totalCount
-      }
-    });
-  } catch (error) {
-    logger.error("Error fetching conversation", { error: error.message });
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-export const replyToConversation = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { content, adId } = req.body;
-    const senderId = req.user.userId;
-
-    if (senderId === userId) return res.status(400).json({ message: "Cannot send message to yourself" });
-
-    const recipient = await User.findById(userId);
-    const sender = await User.findById(senderId);
-    if (!recipient || !sender) return res.status(404).json({ message: "User not found" });
-
-    const messageData = { sender: senderId, recipient: userId, content, attachments: [] };
-
-    if (adId && adId !== "no-ad") {
-      const ad = await Ad.findById(adId);
-      if (ad) {
-        messageData.relatedAd = adId;
-        messageData.subject = \`Message about: \${ad.headline}\`;
-      }
-    }
-
-    const newMessage = new Message(messageData);
-    await newMessage.save();
-
-    try {
-      await notificationManager.notifyNewMessage(userId, sender.name, messageData.subject);
-    } catch (e) {
-      logger.error("Notification error", e);
-    }
-
-    res.status(201).json({ message: "Message sent", data: newMessage });
-  } catch (error) {
-    logger.error("Error sending message", { error: error.message });
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-export const getConversationsList = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const { folder } = req.query;
-    const userObjectId = new mongoose.Types.ObjectId(userId);
-
-    let query = {
-      $or: [
-        { sender: userObjectId, deletedBy: { $nin: [userObjectId] } },
-        { recipient: userObjectId, deletedBy: { $nin: [userObjectId] } },
-      ],
+        totalMessages: totalCount,
+        hasMore: skip + messages.length < totalCount,
+        messagesPerPage: parseInt(limit),
+      },
+      adInfo:
+        messages.length > 0 && messages[0].relatedAd
+          ? messages[0].relatedAd
+          : null,
     };
 
-    if (folder === 'inbox') query = { recipient: userObjectId, deletedBy: { $nin: [userObjectId] } };
-    if (folder === 'sent') query = { sender: userObjectId, deletedBy: { $nin: [userObjectId] } };
-
-    const messages = await Message.find(query)
-      .populate("sender", "name email")
-      .populate("recipient", "name email")
-      .populate("relatedAd", "headline brand model")
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const conversationsByUser = {};
-    messages.forEach((msg) => {
-      const otherUserId = msg.sender._id.toString() === userId ? msg.recipient._id.toString() : msg.sender._id.toString();
-      const adId = msg.relatedAd ? msg.relatedAd._id.toString() : "no-ad";
-      const key = \`\${otherUserId}:\${adId}\`;
-
-      if (!conversationsByUser[key]) {
-        conversationsByUser[key] = {
-          user: msg.sender._id.toString() === userId ? msg.recipient : msg.sender,
-          lastMessage: msg,
-          unreadCount: 0
-        };
-      }
-      
-      if (msg.recipient._id.toString() === userId && !msg.read) {
-        conversationsByUser[key].unreadCount++;
-      }
-    });
-
-    const conversations = Object.values(conversationsByUser).sort((a, b) => new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt));
-    return res.status(200).json({ conversations });
+    console.log("=== getConversation END ===");
+    res.status(200).json(response);
   } catch (error) {
-    logger.error("Error fetching conversations list", { error: error.message });
-    return res.status(500).json({ message: "Server error" });
+    console.error("Błąd podczas pobierania konwersacji:", error);
+    res.status(500).json({ message: "Błąd serwera" });
   }
 };`,
     },
